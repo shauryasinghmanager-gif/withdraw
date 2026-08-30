@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0A0D12">
+<title>Capital Ledger</title>
+<style>
+  :root{
+    --bg:#0A0D12; --bg2:#0D1117; --panel:#12161D; --panel2:#171D26;
+    --border-solid:#242C38; --text:#EDF1F5; --sub:#8891A0; --sub-dim:#5B6472;
+    --profit:#34D399; --profit-dim:#34D39926; --loss:#F87171; --loss-dim:#F8717126;
+    --amber:#FBBF24; --amber-dim:#FBBF2422;
+    --mono:'IBM Plex Mono','SFMono-Regular',ui-monospace,Menlo,Consolas,monospace;
+    --sans:-apple-system,'Segoe UI',sans-serif;
+    --shadow:0 8px 24px -12px rgba(0,0,0,0.55);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{
+    margin:0;
+    background:radial-gradient(680px 320px at 15% -8%, #1a2230 0%, transparent 60%),
+      radial-gradient(600px 300px at 100% 0%, #1a1712 0%, transparent 55%), var(--bg);
+    background-attachment:fixed; color:var(--text); font-family:var(--sans);
+    padding:22px 16px 96px; min-height:100vh; max-width:520px; margin:0 auto;
+  }
+  .app-label{display:flex; align-items:center; gap:7px; font-family:var(--mono); font-size:11px;
+    letter-spacing:0.14em; text-transform:uppercase; color:var(--sub-dim); margin:0 0 18px;}
+  .app-label .dot{width:6px; height:6px; border-radius:50%; background:var(--amber); box-shadow:0 0 8px 1px var(--amber);}
+  .market-toggle{display:flex; gap:6px; margin-bottom:16px; background:var(--panel2); border:1px solid var(--border-solid); border-radius:12px; padding:4px; flex-wrap:wrap;}
+  .market-btn{flex:1; background:transparent; border:none; color:var(--sub); font-size:12.5px; font-weight:600; padding:9px 10px; min-height:auto; border-radius:9px; white-space:nowrap;}
+  .market-btn.active{background:var(--amber-dim); color:var(--amber);}
+  .market-add-btn{flex:0 0 auto; background:transparent; border:1px dashed var(--border-solid); color:var(--sub-dim); font-size:16px; font-weight:600; padding:9px 12px; min-height:auto; border-radius:9px;}
+  .hero{position:relative; background:linear-gradient(165deg,#151B24 0%,#10141B 100%);
+    border:1px solid var(--border-solid); border-radius:20px; padding:22px 20px 18px; margin-bottom:16px; box-shadow:var(--shadow);}
+  .hero-top{display:flex; align-items:center; justify-content:space-between;}
+  .eyebrow{font-family:var(--mono); font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:var(--sub); margin:0;}
+  .icon-btn{display:flex; align-items:center; justify-content:center; width:34px; height:34px;
+    background:#1F2733; border:1px solid #33404F; color:var(--text); border-radius:9px;}
+  .icon-btn svg{width:17px; height:17px; display:block; flex-shrink:0;}
+  .hero-value{font-family:var(--mono); font-size:44px; font-weight:600; letter-spacing:-1px;
+    display:flex; align-items:baseline; gap:3px; margin-top:10px;}
+  .hero-value .cur{font-size:23px; color:var(--sub); font-weight:400;}
+  .delta-pill{display:inline-flex; align-items:center; gap:4px; margin-top:10px; padding:4px 9px 4px 7px;
+    border-radius:100px; font-family:var(--mono); font-size:12px; font-weight:600;}
+  .delta-pill svg{width:11px; height:11px;}
+  .delta-pill.up{background:var(--profit-dim); color:var(--profit);}
+  .delta-pill.down{background:var(--loss-dim); color:var(--loss);}
+  .delta-pill.flat{background:rgba(136,145,160,0.14); color:var(--sub);}
+  .hero-edit{display:none; margin-top:14px;}
+  .hero-edit.show{display:block;}
+  .hero-edit input{margin-bottom:8px;}
+  .hero-edit-actions{display:flex; gap:8px;}
+  .hero-edit-actions .btn-ghost{flex:1;}
+  .btn-primary-sm{flex:1; background:var(--amber); color:#1A1305; font-weight:600; min-height:42px; padding:10px 14px; border-radius:11px;}
+  .hero-sub{display:flex; flex-wrap:wrap; gap:16px; margin-top:16px; padding-top:14px;
+    border-top:1px solid var(--border-solid); font-family:var(--mono); font-size:12.5px;}
+  .hero-sub .stat{display:flex; flex-direction:column; gap:3px;}
+  .hero-sub .stat-label{color:var(--sub-dim); font-size:10.5px; letter-spacing:0.05em; text-transform:uppercase;}
+  .stat-profit{color:var(--profit);} .stat-loss{color:var(--loss);} .stat-amber{color:var(--amber);}
+  .card{background:var(--panel); border:1px solid var(--border-solid); border-radius:18px; padding:18px; margin-bottom:14px; box-shadow:var(--shadow);}
+  .card-head{display:flex; align-items:center; gap:8px; margin:0 0 14px;}
+  .card-head svg{width:14px; height:14px; color:var(--sub-dim);}
+  .card-head h2{font-size:12.5px; font-weight:600; text-transform:uppercase; letter-spacing:0.09em; color:var(--sub); margin:0;}
+  .rates-panel{display:none; background:var(--bg2); border:1px solid var(--border-solid); border-radius:14px; padding:14px; margin-bottom:16px;}
+  .rates-panel.show{display:block;}
+  .rates-panel label{margin-bottom:6px;}
+  .rates-note{font-size:11.5px; color:var(--sub-dim); line-height:1.5; margin:0 0 12px;}
+  .withdraw-summary{display:flex; justify-content:space-between; align-items:baseline; background:var(--amber-dim);
+    border:1px solid #FBBF2433; border-radius:12px; padding:12px 14px; margin-bottom:12px; font-family:var(--mono);}
+  .withdraw-summary .w-total{font-size:20px; font-weight:700; color:var(--amber);}
+  .withdraw-summary .w-label{font-size:10.5px; color:var(--sub); text-transform:uppercase; letter-spacing:0.06em;}
+  .withdraw-summary .w-count{font-size:12px; color:var(--sub-dim); text-align:right;}
+  label{display:block; font-size:11.5px; color:var(--sub-dim); margin-bottom:7px; font-family:var(--mono); letter-spacing:0.03em;}
+  input[type=number]{width:100%; background:var(--bg2); border:1px solid var(--border-solid); color:var(--text);
+    font-family:var(--mono); font-size:18px; padding:14px; border-radius:12px; outline:none; min-height:50px;}
+  input[type=number]:focus{border-color:var(--amber); box-shadow:0 0 0 3px var(--amber-dim);}
+  input[type=number]::-webkit-outer-spin-button,
+  input[type=number]::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+  input[type=number]{ -moz-appearance:textfield; }
+  button{font-family:var(--sans); font-size:14.5px; font-weight:500; border:none; border-radius:12px;
+    padding:14px 16px; min-height:48px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:7px;}
+  .btn-primary{background:linear-gradient(180deg,#FCC94E 0%,var(--amber) 100%); color:#1A1305; width:100%;
+    margin-top:14px; font-size:15.5px; font-weight:600; box-shadow:0 6px 16px -6px rgba(251,191,36,0.45);}
+  .btn-primary svg{width:16px; height:16px;}
+  .btn-ghost{background:var(--panel2); border:1px solid var(--border-solid); color:var(--sub); font-size:12.5px; padding:9px 14px; min-height:38px;}
+  .btn-ghost svg{width:13px; height:13px;}
+  .btn-danger{background:var(--loss); color:#2A0B0B; font-weight:600;}
+  #result{margin-top:14px; padding:14px; border-radius:14px; display:none; font-family:var(--mono); font-size:13px; line-height:1.7;}
+  #result.show{display:block;}
+  .result-profit{background:var(--profit-dim); border:1px solid #34D39944;}
+  .result-loss{background:var(--loss-dim); border:1px solid #F8717144;}
+  .result-flat{background:rgba(136,145,160,0.1); border:1px solid var(--border-solid);}
+  .result-row{display:flex; justify-content:space-between;}
+  .result-row.emph{font-weight:600; font-size:14px; padding-top:6px; margin-top:4px; border-top:1px dashed rgba(255,255,255,0.12);}
+  .err{color:var(--loss); font-size:12px; font-family:var(--mono); margin-top:6px; display:none;}
+  .err.show{display:block;}
+  .chart-wrap{position:relative; width:100%;}
+  .chart-empty{color:var(--sub-dim); font-size:13px; font-family:var(--mono); text-align:center; padding:30px 0;}
+  .chart-tooltip{position:absolute; background:#1C2330; border:1px solid var(--border-solid); border-radius:8px;
+    padding:6px 10px; font-family:var(--mono); font-size:11.5px; color:var(--text); pointer-events:none;
+    transform:translate(-50%,-120%); white-space:nowrap; display:none; z-index:5; box-shadow:var(--shadow);}
+  .chart-tooltip .tt-label{color:var(--sub-dim); font-size:10px;}
+  .row{display:flex; align-items:center; padding:13px 0; border-bottom:1px solid var(--border-solid); gap:11px; cursor:pointer;}
+  .row:last-child{border-bottom:none;}
+  .row-icon{width:30px; height:30px; border-radius:9px; display:flex; align-items:center; justify-content:center; flex:0 0 30px;}
+  .row-icon svg{width:14px; height:14px;}
+  .row-icon.up{background:var(--profit-dim); color:var(--profit);}
+  .row-icon.down{background:var(--loss-dim); color:var(--loss);}
+  .row-icon.neutral{background:rgba(136,145,160,0.14); color:var(--sub);}
+  .row-main{flex:1; min-width:0;}
+  .row-main .sub{color:var(--sub-dim); font-size:11.5px; font-family:var(--mono); margin-top:2px;}
+  .row-date{color:var(--sub-dim); font-size:10.5px; font-family:var(--mono);}
+  .row-right{text-align:right; font-family:var(--mono);}
+  .row-right .cap{font-weight:600; font-size:14px;}
+  .row-right .pnl{font-size:11.5px; margin-top:2px;}
+  .row-chevron{color:var(--sub-dim); transition:transform 0.2s ease; flex:0 0 14px;}
+  .row-chevron svg{width:14px; height:14px; display:block;}
+  .row.expanded .row-chevron{transform:rotate(180deg); color:var(--sub);}
+  .row-detail{max-height:0; overflow:hidden; transition:max-height 0.25s ease; font-family:var(--mono); font-size:11.5px; color:var(--sub); line-height:1.7;}
+  .row-detail-inner{padding:10px 0 4px 41px;}
+  .empty{color:var(--sub-dim); font-size:13px; font-family:var(--mono); text-align:center; padding:16px 0;}
+  .foot-actions{display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; margin-top:8px;}
+  .toast{position:fixed; left:50%; bottom:84px; transform:translate(-50%,20px); background:#1C2330;
+    border:1px solid var(--border-solid); color:var(--text); font-size:13px; padding:12px 18px; border-radius:100px;
+    box-shadow:var(--shadow); display:flex; align-items:center; gap:8px; opacity:0; pointer-events:none;
+    transition:opacity 0.25s ease, transform 0.25s ease; z-index:50; max-width:calc(100% - 32px);}
+  .toast.show{opacity:1; transform:translate(-50%,0); pointer-events:auto;}
+  .toast svg{width:15px; height:15px; color:var(--profit); flex:0 0 auto;}
+  .modal-overlay{position:fixed; inset:0; background:rgba(6,8,12,0.6); backdrop-filter:blur(3px);
+    display:none; align-items:flex-end; justify-content:center; z-index:60; padding:0 16px 16px;}
+  .modal-overlay.show{display:flex;}
+  .modal-card{background:var(--panel); border:1px solid var(--border-solid); border-radius:18px; padding:20px; max-width:400px; width:100%; box-shadow:0 20px 50px -20px rgba(0,0,0,0.7);}
+  .modal-icon{width:42px; height:42px; border-radius:12px; background:var(--loss-dim); color:var(--loss); display:flex; align-items:center; justify-content:center; margin-bottom:12px;}
+  .modal-icon svg{width:20px; height:20px;}
+  .modal-card h3{margin:0 0 6px; font-size:16px;}
+  .modal-card p{margin:0 0 18px; font-size:13px; color:var(--sub); line-height:1.5;}
+  .modal-actions{display:flex; gap:10px;}
+  .modal-actions button{flex:1;}
+  .page{display:none;} .page.active{display:block;}
+  .bottom-nav{position:fixed; left:50%; bottom:0; transform:translateX(-50%); width:100%; max-width:520px;
+    display:flex; background:rgba(18,22,29,0.88); backdrop-filter:blur(14px); border-top:1px solid var(--border-solid); padding:8px 10px; z-index:40;}
+  .nav-btn{flex:1; background:transparent; border:none; color:var(--sub-dim); display:flex; flex-direction:column;
+    align-items:center; gap:3px; font-size:10.5px; font-weight:500; padding:6px 4px; min-height:auto; border-radius:12px;}
+  .nav-btn svg{width:20px; height:20px;}
+  .nav-btn.active{color:var(--amber);}
+</style>
+</head>
+<body>
+
+<p class="app-label"><span class="dot"></span>Capital Ledger</p>
+
+<div class="market-toggle" id="marketToggle"></div>
+
+<div class="page active" id="pageHome">
+
+<div class="hero" id="heroCard">
+  <div class="hero-top">
+    <p class="eyebrow">Current capital</p>
+    <button class="icon-btn" id="editCapitalBtn" aria-label="Edit current capital">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#EDF1F5" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+    </button>
+  </div>
+  <div class="hero-value"><span class="cur">$</span><span id="heroValue">499.13</span></div>
+  <div id="deltaPillWrap"></div>
+
+  <div class="hero-edit" id="heroEdit">
+    <input type="number" id="heroEditInput" inputmode="decimal" step="0.01" placeholder="New capital amount">
+    <div class="hero-edit-actions">
+      <button class="btn-ghost" id="heroEditCancel">Cancel</button>
+      <button class="btn-primary-sm" id="heroEditApply">Apply</button>
+    </div>
+    <div class="err" id="heroEditErr">Enter a valid amount first.</div>
+  </div>
+
+  <div class="hero-sub">
+    <div class="stat"><span class="stat-label">Last P/L</span><span id="lastPnl">—</span></div>
+    <div class="stat"><span class="stat-label">Available to withdraw</span><span id="pendingBalance" class="stat-amber">$0.00</span></div>
+    <div class="stat"><span class="stat-label">Withdrawn total</span><span id="totalWithdrawn" class="stat-profit">$0.00</span></div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+    <h2>Capital growth</h2>
+  </div>
+  <div class="chart-wrap" id="chartWrap"></div>
+</div>
+
+<div class="card">
+  <div class="card-head">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+    <h2>Log new balance</h2>
+    <button class="icon-btn" id="ratesToggleBtn" aria-label="Edit withdraw rate" style="margin-left:auto;">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#EDF1F5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+    </button>
+  </div>
+
+  <div class="rates-panel" id="ratesPanel">
+    <label for="withdrawRateInput">Withdraw %</label>
+    <input type="number" id="withdrawRateInput" inputmode="decimal" step="1" min="0" max="100" value="40">
+    <p class="rates-note" style="margin-top:10px;">This % of any profit gets set aside as withdrawable. Enter your capital already net of fees.</p>
+    <button class="btn-ghost" id="ratesSaveBtn" style="width:100%;">Save rate</button>
+  </div>
+
+  <label for="newBal">Account balance right now</label>
+  <input type="number" id="newBal" inputmode="decimal" step="0.01" placeholder="e.g. 520.00">
+  <div class="err" id="inputErr">Enter a valid balance first.</div>
+  <button class="btn-primary" id="submitBtn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+    Update capital
+  </button>
+  <div id="result"></div>
+</div>
+
+</div>
+
+<div class="page" id="pageHistory">
+<div class="card">
+  <div class="card-head">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+    <h2>Ledger</h2>
+  </div>
+  <div id="history"></div>
+  <div class="foot-actions">
+    <button class="btn-ghost" id="exportBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+      Backup
+    </button>
+    <button class="btn-ghost" id="importBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+      Restore
+    </button>
+    <input type="file" id="importFile" accept="application/json" style="display:none;">
+    <button class="btn-ghost" id="undoBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13a9 9 0 1 0 3-7"/></svg>
+      Undo last
+    </button>
+    <button class="btn-ghost" id="resetBtn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+      Reset all
+    </button>
+  </div>
+</div>
+</div>
+
+<div class="page" id="pageWithdrawals">
+<div class="card">
+  <div class="card-head">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/></svg>
+    <h2>Withdrawals</h2>
+  </div>
+  <div class="withdraw-summary">
+    <div><div class="w-label">Available (not yet taken out)</div><div class="w-total" id="pendingTotal">$0.00</div></div>
+  </div>
+  <label for="pendingWithdrawInput">Withdraw from available balance</label>
+  <input type="number" id="pendingWithdrawInput" inputmode="decimal" step="0.01" placeholder="Amount to take out">
+  <div class="err" id="pendingWithdrawErr">Enter a valid amount (must be ≤ available).</div>
+  <button class="btn-primary" id="pendingWithdrawBtn" style="margin-top:10px;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+    Withdraw now
+  </button>
+  <div id="withdrawalsList" style="margin-top:16px;"></div>
+</div>
+</div>
+
+<div class="modal-overlay" id="resetModal">
+  <div class="modal-card">
+    <div class="modal-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/></svg>
+    </div>
+    <h3>Reset everything?</h3>
+    <p>This clears your whole ledger and puts your capital back to the starting value. This can't be undone.</p>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="resetCancel">Cancel</button>
+      <button class="btn-danger" id="resetConfirm">Yes, reset</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+  <span id="toastMsg">Saved</span>
+</div>
+
+<nav class="bottom-nav">
+  <button class="nav-btn active" data-page="home">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M9 22V12h6v10"/></svg>
+    <span>Home</span>
+  </button>
+  <button class="nav-btn" data-page="history">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+    <span>History</span>
+  </button>
+  <button class="nav-btn" data-page="withdrawals">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/></svg>
+    <span>Withdrawals</span>
+  </button>
+</nav>
+
+<script>
+const ACCOUNTS_KEY = 'capital_ledger_accounts_v1';
+const DEFAULT_ACCOUNTS = [
+  { id:'usd', name:'USD', symbol:'$', initial:499.13 },
+  { id:'inr', name:'INR', symbol:'₹', initial:0 }
+];
+let accounts = loadAccounts();
+let currentMarket = localStorage.getItem('capital_ledger_active_market') || accounts[0].id;
+if(!accounts.find(a=>a.id===currentMarket)) currentMarket = accounts[0].id;
+let entries = [];
+let displayedCapital = 0;
+let settings = { withdrawRate: 0.40 };
+
+function loadAccounts(){
+  try{
+    const raw = localStorage.getItem(ACCOUNTS_KEY);
+    if(raw){
+      const parsed = JSON.parse(raw);
+      if(Array.isArray(parsed) && parsed.length) return parsed;
+    }
+  }catch(e){}
+  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(DEFAULT_ACCOUNTS));
+  return DEFAULT_ACCOUNTS.slice();
+}
+function saveAccounts(){
+  try{ localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts)); }catch(e){}
+}
+function cfg(){
+  return accounts.find(a=>a.id===currentMarket) || accounts[0];
+}
+function initialCapital(){ return cfg().initial; }
+function localKeyFor(id){ return 'capital_ledger_entries_'+id; }
+function settingsKeyFor(id){ return 'capital_ledger_settings_'+id; }
+
+function fmt(n){ const sign = n < 0 ? "-" : ""; return sign + cfg().symbol + Math.abs(n).toFixed(2); }
+function todayStr(){ const d = new Date(); return (d.getMonth()+1).toString().padStart(2,'0') + "/" + d.getDate().toString().padStart(2,'0'); }
+function iconUp(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>'; }
+function iconDown(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M17 7 7 17"/><path d="M16 17H7V8"/></svg>'; }
+function iconWrench(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4l-6 6a2 2 0 1 0 2.8 2.8l6-6a4 4 0 0 0 5.4-5.4l-2.1 2.1-2-2Z"/></svg>'; }
+function iconChevron(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>'; }
+function haptic(){ if(navigator.vibrate){ try{ navigator.vibrate(8); }catch(e){} } }
+
+let toastTimer = null;
+function showToast(msg){
+  const toast = document.getElementById('toast');
+  document.getElementById('toastMsg').textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+}
+function animateValue(el, from, to, duration){
+  const start = performance.now();
+  function step(now){
+    const t = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    el.textContent = (from + (to - from) * eased).toFixed(2);
+    if(t < 1) requestAnimationFrame(step); else el.textContent = to.toFixed(2);
+  }
+  requestAnimationFrame(step);
+}
+
+const LEGACY_KEYS = {
+  usd: { local:'capital_ledger_entries_simple_v1', settings:'capital_ledger_settings_simple_v1' },
+  inr: { local:'capital_ledger_entries_inr_v1', settings:'capital_ledger_settings_inr_v1' }
+};
+
+function loadSettings(){
+  settings = { withdrawRate: 0.40 };
+  try{
+    let raw = localStorage.getItem(settingsKeyFor(currentMarket));
+    if(!raw && LEGACY_KEYS[currentMarket]) raw = localStorage.getItem(LEGACY_KEYS[currentMarket].settings);
+    if(raw) settings = JSON.parse(raw);
+  }catch(e){}
+  document.getElementById('withdrawRateInput').value = Math.round(settings.withdrawRate * 100);
+}
+function saveSettings(){
+  try{ localStorage.setItem(settingsKeyFor(currentMarket), JSON.stringify(settings)); }catch(e){}
+}
+function load(){
+  entries = [];
+  try{
+    let raw = localStorage.getItem(localKeyFor(currentMarket));
+    if(!raw && LEGACY_KEYS[currentMarket]) raw = localStorage.getItem(LEGACY_KEYS[currentMarket].local);
+    if(raw) entries = JSON.parse(raw);
+  }catch(e){}
+  document.querySelector('.hero-value .cur').textContent = cfg().symbol;
+  displayedCapital = currentCapital();
+  render(true);
+}
+function save(){
+  try{ localStorage.setItem(localKeyFor(currentMarket), JSON.stringify(entries)); }catch(e){}
+}
+
+function currentCapital(){ return entries.length === 0 ? initialCapital() : entries[entries.length-1].capitalAfter; }
+function totalWithdrawn(){ return entries.reduce((sum,e)=>sum+(e.withdrawal||0),0); }
+function pendingBalance(){ return entries.reduce((sum,e)=>sum+(e.pendingAdded||0),0); }
+
+function renderChart(){
+  const wrap = document.getElementById('chartWrap');
+  const points = entries.map((e,i) => ({ label: i===0 ? 'Start' : e.date, value:e.capitalAfter, pnl:e.adjustment?0:e.pnl, isStart:i===0, adjustment:e.adjustment }));
+
+  if(points.length < 1){
+    wrap.innerHTML = '<div class="chart-empty">Log a balance to start the chart</div>';
+    return;
+  }
+  if(points.length === 1){
+    points.push({ ...points[0], label: points[0].label });
+  }
+  const W=320,H=140,padX=12,padY=20;
+  const values = points.map(p=>p.value);
+  let min=Math.min(...values), max=Math.max(...values);
+  if(min===max){min-=1;max+=1;}
+  const spread=(max-min)*0.15; min-=spread; max+=spread;
+  const range=max-min;
+  const xStep=(W-padX*2)/(points.length-1);
+  const coords = points.map((p,i)=>{
+    const x=padX+i*xStep;
+    const y=padY+(H-padY*2)*(1-(p.value-min)/range);
+    return {x,y,...p};
+  });
+  let pathD='';
+  coords.forEach((c,i)=>{
+    if(i===0){pathD+='M'+c.x.toFixed(1)+' '+c.y.toFixed(1); return;}
+    const prev=coords[i-1]; const midX=(prev.x+c.x)/2;
+    pathD+=' C '+midX.toFixed(1)+' '+prev.y.toFixed(1)+' '+midX.toFixed(1)+' '+c.y.toFixed(1)+' '+c.x.toFixed(1)+' '+c.y.toFixed(1);
+  });
+  const baseY=H-padY;
+  const areaD=pathD+' L '+coords[coords.length-1].x.toFixed(1)+' '+baseY+' L '+coords[0].x.toFixed(1)+' '+baseY+' Z';
+  let gridLines='';
+  for(let g=0; g<3; g++){
+    const gy=padY+(H-padY*2)*(g/2);
+    gridLines+='<line x1="'+padX+'" y1="'+gy.toFixed(1)+'" x2="'+(W-padX)+'" y2="'+gy.toFixed(1)+'" stroke="rgba(255,255,255,0.05)" stroke-width="1" stroke-dasharray="2,4"/>';
+  }
+  let dots='';
+  coords.forEach((c,i)=>{
+    const color = c.isStart?'var(--sub)':(c.adjustment?'var(--amber)':(c.pnl>0?'var(--profit)':(c.pnl<0?'var(--loss)':'var(--sub)')));
+    dots+='<circle class="chart-dot" cx="'+c.x.toFixed(1)+'" cy="'+c.y.toFixed(1)+'" r="11" fill="transparent" data-idx="'+i+'"></circle>';
+    dots+='<circle cx="'+c.x.toFixed(1)+'" cy="'+c.y.toFixed(1)+'" r="4" fill="'+color+'" stroke="#12161D" stroke-width="2" pointer-events="none"></circle>';
+  });
+  const svg = '<svg viewBox="0 0 '+W+' '+H+'" style="width:100%; height:150px; display:block; overflow:visible;">'+
+    '<defs><linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">'+
+    '<stop offset="0%" stop-color="var(--amber)" stop-opacity="0.28"/>'+
+    '<stop offset="100%" stop-color="var(--amber)" stop-opacity="0"/></linearGradient></defs>'+
+    gridLines+
+    '<path d="'+areaD+'" fill="url(#areaGrad)" stroke="none"/>'+
+    '<path d="'+pathD+'" fill="none" stroke="var(--amber)" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round"/>'+
+    dots+'</svg>'+
+    '<div class="chart-tooltip" id="chartTip"></div>';
+  wrap.innerHTML = svg;
+
+  const tip = document.getElementById('chartTip');
+  wrap.querySelectorAll('.chart-dot').forEach(dot=>{
+    const idx = parseInt(dot.getAttribute('data-idx'));
+    const p = coords[idx];
+    const showTip = ()=>{
+      const rect = wrap.querySelector('svg').getBoundingClientRect();
+      const scaleX = rect.width/W, scaleY = rect.height/H;
+      tip.style.left = (p.x*scaleX)+'px'; tip.style.top = (p.y*scaleY)+'px';
+      tip.innerHTML = '<span class="tt-label">'+p.label+'</span><br>$'+p.value.toFixed(2);
+      tip.style.display = 'block';
+    };
+    dot.addEventListener('mouseenter', showTip);
+    dot.addEventListener('touchstart', (e)=>{ e.stopPropagation(); showTip(); });
+  });
+  wrap.addEventListener('mouseleave', ()=>{ tip.style.display='none'; });
+  document.addEventListener('touchstart', (e)=>{ if(!wrap.contains(e.target)) tip.style.display='none'; });
+}
+
+function render(skipAnim){
+  const cap = currentCapital();
+  const heroEl = document.getElementById('heroValue');
+  if(skipAnim){ heroEl.textContent = cap.toFixed(2); }
+  else { animateValue(heroEl, displayedCapital, cap, 650); }
+  displayedCapital = cap;
+
+  document.getElementById('totalWithdrawn').textContent = fmt(totalWithdrawn());
+  document.getElementById('pendingBalance').textContent = fmt(pendingBalance());
+  document.getElementById('pendingTotal').textContent = fmt(pendingBalance());
+
+  const lastPnlEl = document.getElementById('lastPnl');
+  const deltaWrap = document.getElementById('deltaPillWrap');
+  const heroCard = document.getElementById('heroCard');
+
+  if(entries.length === 0){
+    lastPnlEl.textContent = "—"; lastPnlEl.className = ""; deltaWrap.innerHTML = "";
+  } else {
+    const last = entries[entries.length-1];
+    lastPnlEl.textContent = (last.pnl >= 0 ? "+" : "") + fmt(last.pnl);
+    lastPnlEl.className = last.pnl > 0 ? "stat-profit" : (last.pnl < 0 ? "stat-loss" : "");
+
+    if(last.adjustment){
+      deltaWrap.innerHTML = '<span class="delta-pill flat">'+iconWrench()+' Manually corrected</span>';
+    } else if(last.pnl > 0){
+      const pct = last.previousCapital > 0 ? (last.pnl/last.previousCapital*100) : 0;
+      deltaWrap.innerHTML = '<span class="delta-pill up">'+iconUp()+' +'+fmt(last.pnl)+' ('+pct.toFixed(1)+'%)</span>';
+    } else if(last.pnl < 0){
+      const pct = last.previousCapital > 0 ? (last.pnl/last.previousCapital*100) : 0;
+      deltaWrap.innerHTML = '<span class="delta-pill down">'+iconDown()+' '+fmt(last.pnl)+' ('+pct.toFixed(1)+'%)</span>';
+    } else {
+      deltaWrap.innerHTML = '<span class="delta-pill flat">No change</span>';
+    }
+  }
+  renderChart();
+  renderLedgerList();
+  renderWithdrawalsList();
+}
+
+function renderWithdrawalsList(){
+  const wrapEl = document.getElementById('withdrawalsList');
+  const withdrawals = entries.filter(e => e.withdrawal > 0);
+
+  if(withdrawals.length === 0){
+    wrapEl.innerHTML = '<div class="empty">No withdrawals yet.</div>';
+    return;
+  }
+  let html = '';
+  let running = 0;
+  const rows = withdrawals.map(e=>{ running += e.withdrawal; return {e, running}; }).reverse();
+  rows.forEach(({e,running})=>{
+    const label = e.isPendingWithdrawal ? 'from available balance' : ('from '+fmt(e.pnl)+' profit');
+    html += '<div class="row-wrap"><div class="row">'+
+      '<div class="row-icon up">'+iconUp()+'</div>'+
+      '<div class="row-main"><span class="row-date">'+e.date+'</span><div class="sub">'+label+'</div></div>'+
+      '<div class="row-right"><div class="cap stat-amber">'+fmt(e.withdrawal)+'</div><div class="pnl">total '+fmt(running)+'</div></div>'+
+      '</div></div>';
+  });
+  wrapEl.innerHTML = html;
+}
+
+function renderLedgerList(){
+  const historyEl = document.getElementById('history');
+  if(entries.length === 0){
+    historyEl.innerHTML = '<div class="empty">No entries yet — starting capital '+fmt(initialCapital())+'</div>';
+    return;
+  }
+  let html = '';
+  for(let i = entries.length-1; i >= 0; i--){
+    const e = entries[i];
+    const isAdj = !!e.adjustment;
+    const isPendingWd = !!e.isPendingWithdrawal;
+    const iconClass = isAdj || isPendingWd ? 'neutral' : (e.pnl > 0 ? 'up' : (e.pnl < 0 ? 'down' : 'neutral'));
+    const iconSvg = isAdj ? iconWrench() : (isPendingWd ? iconUp() : (e.pnl >= 0 ? iconUp() : iconDown()));
+    const pnlClass = isAdj ? '' : (e.pnl > 0 ? "stat-profit" : (e.pnl < 0 ? "stat-loss" : ""));
+    const pnlText = isAdj || isPendingWd ? '' : ((e.pnl >= 0 ? "+" : "") + fmt(e.pnl));
+    let subText;
+    if(isAdj) subText = "manual correction";
+    else if(isPendingWd) subText = "withdrew "+fmt(e.withdrawal)+" from available";
+    else if(e.choice === 'withdraw') subText = "withdrew "+fmt(e.withdrawal)+" now";
+    else if(e.choice === 'keep') subText = "kept "+fmt(e.pendingAdded)+" available";
+    else if(e.pnl < 0) subText = "loss, no withdrawal";
+    else subText = "flat";
+
+    let detailText;
+    if(isAdj){
+      detailText = fmt(e.previousCapital)+' &rarr; '+fmt(e.newBalance)+' (manual correction, not counted as P/L)';
+    } else if(isPendingWd){
+      detailText = 'Withdrew '+fmt(e.withdrawal)+' from available balance &middot; capital '+fmt(e.previousCapital)+' &rarr; '+fmt(e.capitalAfter);
+    } else if(e.choice === 'withdraw'){
+      detailText = fmt(e.previousCapital)+' &rarr; '+fmt(e.newBalance)+' &middot; profit '+fmt(e.pnl)+' &middot; withdrew '+fmt(e.withdrawal)+' ('+Math.round(e.withdrawRate*100)+'%) now &middot; kept '+fmt(e.capitalAfter);
+    } else if(e.choice === 'keep'){
+      detailText = fmt(e.previousCapital)+' &rarr; '+fmt(e.newBalance)+' &middot; profit '+fmt(e.pnl)+' &middot; '+fmt(e.pendingAdded)+' ('+Math.round(e.withdrawRate*100)+'%) left in account, available anytime';
+    } else if(e.pnl < 0){
+      detailText = fmt(e.previousCapital)+' &rarr; '+fmt(e.newBalance)+' &middot; loss '+fmt(e.pnl)+' &middot; full balance carried forward';
+    } else {
+      detailText = fmt(e.previousCapital)+' &rarr; '+fmt(e.newBalance)+' &middot; no change';
+    }
+
+    html += '<div class="row-wrap" data-idx="'+i+'">'+
+      '<div class="row" tabindex="0">'+
+        '<div class="row-icon '+iconClass+'">'+iconSvg+'</div>'+
+        '<div class="row-main"><span class="row-date">'+e.date+'</span><div class="sub">'+subText+'</div></div>'+
+        '<div class="row-right"><div class="cap">$'+e.capitalAfter.toFixed(2)+'</div>'+(pnlText?'<div class="pnl '+pnlClass+'">'+pnlText+'</div>':'')+'</div>'+
+        '<div class="row-chevron">'+iconChevron()+'</div>'+
+      '</div>'+
+      '<div class="row-detail"><div class="row-detail-inner">'+detailText+'</div></div>'+
+      '</div>';
+  }
+  historyEl.innerHTML = html;
+
+  historyEl.querySelectorAll('.row-wrap').forEach(wrap=>{
+    const rowEl = wrap.querySelector('.row');
+    const detailEl = wrap.querySelector('.row-detail');
+    const toggle = ()=>{
+      const isOpen = wrap.classList.toggle('expanded');
+      detailEl.style.maxHeight = isOpen ? detailEl.scrollHeight+'px' : '0px';
+    };
+    rowEl.addEventListener('click', toggle);
+    rowEl.addEventListener('keydown', (ev)=>{ if(ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); toggle(); } });
+  });
+}
+
+document.querySelectorAll('.nav-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const target = btn.getAttribute('data-page');
+    haptic();
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b===btn));
+    document.getElementById('pageHome').classList.toggle('active', target==='home');
+    document.getElementById('pageHistory').classList.toggle('active', target==='history');
+    document.getElementById('pageWithdrawals').classList.toggle('active', target==='withdrawals');
+    window.scrollTo({top:0, behavior:'instant'});
+  });
+});
+
+let pendingEntry = null;
+
+document.getElementById('submitBtn').addEventListener('click', ()=>{
+  const input = document.getElementById('newBal');
+  const errEl = document.getElementById('inputErr');
+  const val = parseFloat(input.value);
+  if(isNaN(val) || val < 0){ errEl.classList.add('show'); return; }
+  errEl.classList.remove('show');
+  haptic();
+
+  const prevCapital = currentCapital();
+  const pnl = val - prevCapital;
+  const resultEl = document.getElementById('result');
+
+  if(pnl > 0){
+    const withdrawAmount = pnl * settings.withdrawRate;
+    pendingEntry = { date: todayStr(), previousCapital: prevCapital, newBalance: val, pnl, withdrawAmount };
+    resultEl.classList.add('show');
+    resultEl.className = 'show result-profit';
+    resultEl.innerHTML =
+      '<div class="result-row"><span>Profit</span><span>+'+fmt(pnl)+'</span></div>'+
+      '<div class="result-row emph"><span>Set aside ('+Math.round(settings.withdrawRate*100)+'%)</span><span>'+fmt(withdrawAmount)+'</span></div>'+
+      '<div style="margin-top:12px; font-size:12.5px; color:var(--sub);">Did you actually withdraw this?</div>'+
+      '<div class="hero-edit-actions" style="margin-top:8px;">'+
+        '<button class="btn-ghost" id="keepInAccountBtn" style="flex:1;">Left it in account</button>'+
+        '<button class="btn-primary-sm" id="withdrewNowBtn" style="flex:1;">Withdrew it now</button>'+
+      '</div>';
+    document.getElementById('keepInAccountBtn').addEventListener('click', ()=>confirmEntry('keep'));
+    document.getElementById('withdrewNowBtn').addEventListener('click', ()=>confirmEntry('withdraw'));
+    input.value = '';
+    return;
+  }
+
+  // loss or flat — no withdrawal decision needed
+  const capitalAfter = val;
+  entries.push({ date: todayStr(), previousCapital: prevCapital, newBalance: val, pnl: pnl, withdrawal: 0, pendingAdded: 0, capitalAfter: capitalAfter, withdrawRate: settings.withdrawRate });
+  save(); render();
+
+  resultEl.classList.add('show');
+  if(pnl < 0){
+    resultEl.className = 'show result-loss';
+    resultEl.innerHTML =
+      '<div class="result-row"><span>Loss</span><span>'+fmt(pnl)+'</span></div>'+
+      '<div class="result-row"><span>No withdrawal</span><span>—</span></div>'+
+      '<div class="result-row emph"><span>New capital</span><span>'+fmt(capitalAfter)+'</span></div>';
+  } else {
+    resultEl.className = 'show result-flat';
+    resultEl.innerHTML = '<div class="result-row"><span>No change</span><span>'+fmt(capitalAfter)+'</span></div>';
+  }
+  input.value = '';
+});
+
+function confirmEntry(choice){
+  if(!pendingEntry) return;
+  const e = pendingEntry;
+  let entry;
+  if(choice === 'withdraw'){
+    entry = { date:e.date, previousCapital:e.previousCapital, newBalance:e.newBalance, pnl:e.pnl,
+      withdrawal:e.withdrawAmount, pendingAdded:0, capitalAfter:e.newBalance - e.withdrawAmount, withdrawRate:settings.withdrawRate, choice:'withdraw' };
+  } else {
+    entry = { date:e.date, previousCapital:e.previousCapital, newBalance:e.newBalance, pnl:e.pnl,
+      withdrawal:0, pendingAdded:e.withdrawAmount, capitalAfter:e.newBalance, withdrawRate:settings.withdrawRate, choice:'keep' };
+  }
+  entries.push(entry);
+  save(); render();
+  haptic();
+
+  const resultEl = document.getElementById('result');
+  resultEl.className = 'show result-profit';
+  if(choice === 'withdraw'){
+    resultEl.innerHTML =
+      '<div class="result-row"><span>Withdrew</span><span>'+fmt(entry.withdrawal)+'</span></div>'+
+      '<div class="result-row emph"><span>Capital now</span><span>'+fmt(entry.capitalAfter)+'</span></div>';
+  } else {
+    resultEl.innerHTML =
+      '<div class="result-row"><span>Kept in account</span><span>'+fmt(e.withdrawAmount)+' still available</span></div>'+
+      '<div class="result-row emph"><span>Capital now</span><span>'+fmt(entry.capitalAfter)+'</span></div>';
+  }
+  pendingEntry = null;
+}
+
+document.getElementById('pendingWithdrawBtn').addEventListener('click', ()=>{
+  const input = document.getElementById('pendingWithdrawInput');
+  const errEl = document.getElementById('pendingWithdrawErr');
+  const amount = parseFloat(input.value);
+  const available = pendingBalance();
+  if(isNaN(amount) || amount <= 0 || amount > available + 0.005){
+    errEl.classList.add('show');
+    return;
+  }
+  errEl.classList.remove('show');
+  haptic();
+  const prevCapital = currentCapital();
+  entries.push({
+    date: todayStr(), previousCapital: prevCapital, newBalance: prevCapital, pnl: 0,
+    withdrawal: amount, pendingAdded: -amount, capitalAfter: prevCapital - amount,
+    isPendingWithdrawal: true
+  });
+  save(); render();
+  input.value = '';
+  showToast('Withdrew '+fmt(amount));
+});
+
+document.getElementById('undoBtn').addEventListener('click', ()=>{
+  if(entries.length === 0) return;
+  haptic(); entries.pop(); save(); render();
+  document.getElementById('result').classList.remove('show');
+  showToast('Last entry removed');
+});
+
+document.getElementById('resetBtn').addEventListener('click', ()=>{ document.getElementById('resetModal').classList.add('show'); });
+document.getElementById('resetCancel').addEventListener('click', ()=>{ document.getElementById('resetModal').classList.remove('show'); });
+document.getElementById('resetModal').addEventListener('click', (e)=>{ if(e.target.id==='resetModal') document.getElementById('resetModal').classList.remove('show'); });
+document.getElementById('resetConfirm').addEventListener('click', ()=>{
+  haptic(); entries = []; save(); render();
+  document.getElementById('result').classList.remove('show');
+  document.getElementById('resetModal').classList.remove('show');
+  showToast('Ledger reset');
+});
+
+document.getElementById('editCapitalBtn').addEventListener('click', ()=>{
+  const editBox = document.getElementById('heroEdit');
+  const isShowing = editBox.classList.toggle('show');
+  if(isShowing){
+    const input = document.getElementById('heroEditInput');
+    input.value = currentCapital().toFixed(2);
+    input.focus(); input.select();
+  }
+});
+document.getElementById('heroEditCancel').addEventListener('click', ()=>{
+  document.getElementById('heroEdit').classList.remove('show');
+  document.getElementById('heroEditErr').classList.remove('show');
+});
+document.getElementById('heroEditApply').addEventListener('click', ()=>{
+  const input = document.getElementById('heroEditInput');
+  const errEl = document.getElementById('heroEditErr');
+  const val = parseFloat(input.value);
+  if(isNaN(val) || val < 0){ errEl.classList.add('show'); return; }
+  errEl.classList.remove('show');
+  haptic();
+  entries.push({ date: todayStr(), previousCapital: currentCapital(), newBalance: val, pnl: 0, withdrawal: 0, capitalAfter: val, adjustment: true });
+  save(); render();
+  document.getElementById('heroEdit').classList.remove('show');
+  showToast('Capital updated');
+});
+
+document.getElementById('ratesToggleBtn').addEventListener('click', ()=>{ document.getElementById('ratesPanel').classList.toggle('show'); });
+document.getElementById('ratesSaveBtn').addEventListener('click', ()=>{
+  const withdrawVal = parseFloat(document.getElementById('withdrawRateInput').value);
+  if(isNaN(withdrawVal) || withdrawVal < 0 || withdrawVal > 100){ showToast('Enter a value between 0 and 100'); return; }
+  settings.withdrawRate = withdrawVal / 100;
+  saveSettings(); haptic();
+  showToast('Withdraw rate updated: '+withdrawVal+'%');
+  document.getElementById('ratesPanel').classList.remove('show');
+});
+
+document.getElementById('exportBtn').addEventListener('click', ()=>{
+  const allData = {};
+  accounts.forEach(a=>{
+    let e = [], s = { withdrawRate: 0.40 };
+    try{ const raw = localStorage.getItem(localKeyFor(a.id)); if(raw) e = JSON.parse(raw); }catch(err){}
+    try{ const raw = localStorage.getItem(settingsKeyFor(a.id)); if(raw) s = JSON.parse(raw); }catch(err){}
+    allData[a.id] = { entries: e, settings: s };
+  });
+  const backup = { accounts, data: allData, exportedAt: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'capital-ledger-backup-' + todayStr().replace('/','-') + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Backup downloaded (all accounts)');
+});
+
+document.getElementById('importBtn').addEventListener('click', ()=>{
+  document.getElementById('importFile').click();
+});
+document.getElementById('importFile').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev)=>{
+    try{
+      const parsed = JSON.parse(ev.target.result);
+      if(Array.isArray(parsed.accounts) && parsed.data){
+        accounts = parsed.accounts;
+        saveAccounts();
+        Object.keys(parsed.data).forEach(id=>{
+          const d = parsed.data[id];
+          try{ localStorage.setItem(localKeyFor(id), JSON.stringify(d.entries||[])); }catch(err){}
+          try{ localStorage.setItem(settingsKeyFor(id), JSON.stringify(d.settings||{withdrawRate:0.40})); }catch(err){}
+        });
+        currentMarket = accounts[0].id;
+        renderToggle();
+        loadSettings();
+        load();
+        showToast('Backup restored (all accounts)');
+      } else if(Array.isArray(parsed.entries)){
+        entries = parsed.entries;
+        if(parsed.settings) settings = parsed.settings;
+        save(); saveSettings();
+        loadSettings();
+        render(true);
+        showToast('Backup restored');
+      } else {
+        throw new Error('bad format');
+      }
+    }catch(err){
+      showToast('Could not read that backup file');
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file);
+});
+
+function checkStorageAvailable(){
+  try{
+    const testKey = '__ledger_test__';
+    localStorage.setItem(testKey, '1');
+    localStorage.removeItem(testKey);
+    return true;
+  }catch(e){
+    return false;
+  }
+}
+if(!checkStorageAvailable()){
+  showToast('Storage unavailable here — use Backup/Restore to keep your data safe');
+}
+
+function switchMarket(id){
+  if(id === currentMarket) return;
+  haptic();
+  currentMarket = id;
+  localStorage.setItem('capital_ledger_active_market', currentMarket);
+  document.getElementById('result').classList.remove('show');
+  document.getElementById('inputErr').classList.remove('show');
+  document.getElementById('heroEdit').classList.remove('show');
+  document.getElementById('heroEditErr').classList.remove('show');
+  document.getElementById('ratesPanel').classList.remove('show');
+  renderToggle();
+  loadSettings();
+  load();
+  checkStorageAvailable();
+}
+
+function renderToggle(){
+  const wrap = document.getElementById('marketToggle');
+  let html = '';
+  accounts.forEach(a=>{
+    html += '<button class="market-btn'+(a.id===currentMarket?' active':'')+'" data-id="'+a.id+'">'+a.name+'</button>';
+  });
+  html += '<button class="market-add-btn" id="addAccountBtn" aria-label="Add account">+</button>';
+  wrap.innerHTML = html;
+
+  wrap.querySelectorAll('.market-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> switchMarket(btn.getAttribute('data-id')));
+    let pressTimer;
+    btn.addEventListener('touchstart', ()=>{ pressTimer = setTimeout(()=>maybeDeleteAccount(btn.getAttribute('data-id')), 650); });
+    btn.addEventListener('touchend', ()=> clearTimeout(pressTimer));
+    btn.addEventListener('contextmenu', (e)=>{ e.preventDefault(); maybeDeleteAccount(btn.getAttribute('data-id')); });
+  });
+  document.getElementById('addAccountBtn').addEventListener('click', addAccount);
+}
+
+function addAccount(){
+  const name = prompt('Account name (e.g. "Delta Exchange")');
+  if(!name || !name.trim()) return;
+  const symbol = prompt('Currency symbol for this account (e.g. $, ₹, USDT)', '$');
+  if(symbol === null) return;
+  const startVal = prompt('Starting capital for this account', '0');
+  const initial = parseFloat(startVal);
+  const id = 'acc_' + Date.now();
+  accounts.push({ id, name: name.trim(), symbol: symbol.trim() || '$', initial: isNaN(initial) ? 0 : initial });
+  saveAccounts();
+  switchMarket(id);
+  showToast('Account added: ' + name.trim());
+}
+
+function maybeDeleteAccount(id){
+  if(accounts.length <= 1){ showToast("Can't delete your only account"); return; }
+  const acc = accounts.find(a=>a.id===id);
+  if(!acc) return;
+  if(!confirm('Delete "'+acc.name+'" and all its data? This can\'t be undone.')) return;
+  try{ localStorage.removeItem(localKeyFor(id)); localStorage.removeItem(settingsKeyFor(id)); }catch(e){}
+  accounts = accounts.filter(a=>a.id!==id);
+  saveAccounts();
+  if(currentMarket === id){
+    currentMarket = accounts[0].id;
+    localStorage.setItem('capital_ledger_active_market', currentMarket);
+    loadSettings(); load();
+  }
+  renderToggle();
+  showToast('Account deleted');
+}
+
+if(!checkStorageAvailable()){
+  showToast('Storage unavailable here — use Backup/Restore to keep your data safe');
+}
+
+renderToggle();
+loadSettings();
+load();
+</script>
+
+</body>
+</html>
