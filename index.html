@@ -301,8 +301,8 @@
 <script>
 const ACCOUNTS_KEY = 'capital_ledger_accounts_v1';
 const DEFAULT_ACCOUNTS = [
-  { id:'usd', name:'USD', symbol:'$', initial:499.13 },
-  { id:'inr', name:'INR', symbol:'₹', initial:0 }
+  { id:'usd', name:'USD', symbol:'$', initial:499.13, commaStyle:'intl' },
+  { id:'inr', name:'INR', symbol:'₹', initial:0, commaStyle:'indian' }
 ];
 let accounts = loadAccounts();
 let currentMarket = localStorage.getItem('capital_ledger_active_market') || accounts[0].id;
@@ -332,7 +332,13 @@ function initialCapital(){ return cfg().initial; }
 function localKeyFor(id){ return 'capital_ledger_entries_'+id; }
 function settingsKeyFor(id){ return 'capital_ledger_settings_'+id; }
 
-function fmt(n){ const sign = n < 0 ? "-" : ""; return sign + cfg().symbol + Math.abs(n).toFixed(2); }
+function fmt(n){
+  const sign = n < 0 ? "-" : "";
+  const abs = Math.abs(n);
+  const locale = cfg().commaStyle === 'indian' ? 'en-IN' : 'en-US';
+  const numStr = abs.toLocaleString(locale, { minimumFractionDigits:2, maximumFractionDigits:2 });
+  return sign + cfg().symbol + numStr;
+}
 function todayStr(){ const d = new Date(); return (d.getMonth()+1).toString().padStart(2,'0') + "/" + d.getDate().toString().padStart(2,'0'); }
 function iconUp(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>'; }
 function iconDown(){ return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M17 7 7 17"/><path d="M16 17H7V8"/></svg>'; }
@@ -348,13 +354,17 @@ function showToast(msg){
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
 }
+function numOnly(n){
+  const locale = cfg().commaStyle === 'indian' ? 'en-IN' : 'en-US';
+  return Math.abs(n).toLocaleString(locale, { minimumFractionDigits:2, maximumFractionDigits:2 });
+}
 function animateValue(el, from, to, duration){
   const start = performance.now();
   function step(now){
     const t = Math.min(1, (now - start) / duration);
     const eased = 1 - Math.pow(1 - t, 3);
-    el.textContent = (from + (to - from) * eased).toFixed(2);
-    if(t < 1) requestAnimationFrame(step); else el.textContent = to.toFixed(2);
+    el.textContent = numOnly(from + (to - from) * eased);
+    if(t < 1) requestAnimationFrame(step); else el.textContent = numOnly(to);
   }
   requestAnimationFrame(step);
 }
@@ -456,7 +466,7 @@ function renderChart(){
       const rect = wrap.querySelector('svg').getBoundingClientRect();
       const scaleX = rect.width/W, scaleY = rect.height/H;
       tip.style.left = (p.x*scaleX)+'px'; tip.style.top = (p.y*scaleY)+'px';
-      tip.innerHTML = '<span class="tt-label">'+p.label+'</span><br>$'+p.value.toFixed(2);
+      tip.innerHTML = '<span class="tt-label">'+p.label+'</span><br>'+fmt(p.value);
       tip.style.display = 'block';
     };
     dot.addEventListener('mouseenter', showTip);
@@ -469,7 +479,7 @@ function renderChart(){
 function render(skipAnim){
   const cap = currentCapital();
   const heroEl = document.getElementById('heroValue');
-  if(skipAnim){ heroEl.textContent = cap.toFixed(2); }
+  if(skipAnim){ heroEl.textContent = numOnly(cap); }
   else { animateValue(heroEl, displayedCapital, cap, 650); }
   displayedCapital = cap;
 
@@ -569,7 +579,7 @@ function renderLedgerList(){
       '<div class="row" tabindex="0">'+
         '<div class="row-icon '+iconClass+'">'+iconSvg+'</div>'+
         '<div class="row-main"><span class="row-date">'+e.date+'</span><div class="sub">'+subText+'</div></div>'+
-        '<div class="row-right"><div class="cap">$'+e.capitalAfter.toFixed(2)+'</div>'+(pnlText?'<div class="pnl '+pnlClass+'">'+pnlText+'</div>':'')+'</div>'+
+        '<div class="row-right"><div class="cap">'+fmt(e.capitalAfter)+'</div>'+(pnlText?'<div class="pnl '+pnlClass+'">'+pnlText+'</div>':'')+'</div>'+
         '<div class="row-chevron">'+iconChevron()+'</div>'+
       '</div>'+
       '<div class="row-detail"><div class="row-detail-inner">'+detailText+'</div></div>'+
@@ -875,8 +885,10 @@ function addAccount(){
   if(symbol === null) return;
   const startVal = prompt('Starting capital for this account', '0');
   const initial = parseFloat(startVal);
+  const commaChoice = prompt('Number format — type "indian" for 1,00,000 style or "intl" for 100,000 style', symbol.trim() === '₹' ? 'indian' : 'intl');
+  const commaStyle = (commaChoice || '').trim().toLowerCase() === 'indian' ? 'indian' : 'intl';
   const id = 'acc_' + Date.now();
-  accounts.push({ id, name: name.trim(), symbol: symbol.trim() || '$', initial: isNaN(initial) ? 0 : initial });
+  accounts.push({ id, name: name.trim(), symbol: symbol.trim() || '$', initial: isNaN(initial) ? 0 : initial, commaStyle });
   saveAccounts();
   switchMarket(id);
   showToast('Account added: ' + name.trim());
