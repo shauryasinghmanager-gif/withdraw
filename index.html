@@ -38,8 +38,9 @@
     background:#1F2733; border:1px solid #33404F; color:var(--text); border-radius:9px;}
   .icon-btn svg{width:17px; height:17px; display:block; flex-shrink:0;}
   .hero-value{font-family:var(--mono); font-size:44px; font-weight:600; letter-spacing:-1px;
-    display:flex; align-items:baseline; gap:3px; margin-top:10px;}
-  .hero-value .cur{font-size:23px; color:var(--sub); font-weight:400;}
+    display:flex; align-items:baseline; gap:3px; margin-top:10px; max-width:100%; overflow:hidden;}
+  .hero-value .cur{font-size:0.52em; color:var(--sub); font-weight:400; flex-shrink:0;}
+  .hero-value #heroValue{overflow:hidden; text-overflow:clip; white-space:nowrap;}
   .delta-pill{display:inline-flex; align-items:center; gap:4px; margin-top:10px; padding:4px 9px 4px 7px;
     border-radius:100px; font-family:var(--mono); font-size:12px; font-weight:600;}
   .delta-pill svg{width:11px; height:11px;}
@@ -312,15 +313,27 @@ let displayedCapital = 0;
 let settings = { withdrawRate: 0.40 };
 
 function loadAccounts(){
+  let list = null;
   try{
     const raw = localStorage.getItem(ACCOUNTS_KEY);
     if(raw){
       const parsed = JSON.parse(raw);
-      if(Array.isArray(parsed) && parsed.length) return parsed;
+      if(Array.isArray(parsed) && parsed.length) list = parsed;
     }
   }catch(e){}
-  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(DEFAULT_ACCOUNTS));
-  return DEFAULT_ACCOUNTS.slice();
+  if(!list) list = DEFAULT_ACCOUNTS.slice();
+
+  let changed = false;
+  list.forEach(a=>{
+    if(!a.commaStyle){
+      a.commaStyle = a.symbol === '₹' ? 'indian' : 'intl';
+      changed = true;
+    }
+  });
+  if(changed){
+    try{ localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(list)); }catch(e){}
+  }
+  return list;
 }
 function saveAccounts(){
   try{ localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts)); }catch(e){}
@@ -358,13 +371,24 @@ function numOnly(n){
   const locale = cfg().commaStyle === 'indian' ? 'en-IN' : 'en-US';
   return Math.abs(n).toLocaleString(locale, { minimumFractionDigits:2, maximumFractionDigits:2 });
 }
+function fitHeroFontSize(){
+  const heroValueEl = document.querySelector('.hero-value');
+  const numEl = document.getElementById('heroValue');
+  if(!heroValueEl || !numEl) return;
+  const sizes = [44, 38, 32, 27, 23, 19, 16];
+  for(const size of sizes){
+    heroValueEl.style.fontSize = size + 'px';
+    if(numEl.scrollWidth <= heroValueEl.clientWidth - 4 || size === sizes[sizes.length-1]) break;
+  }
+}
 function animateValue(el, from, to, duration){
   const start = performance.now();
   function step(now){
     const t = Math.min(1, (now - start) / duration);
     const eased = 1 - Math.pow(1 - t, 3);
     el.textContent = numOnly(from + (to - from) * eased);
-    if(t < 1) requestAnimationFrame(step); else el.textContent = numOnly(to);
+    fitHeroFontSize();
+    if(t < 1) requestAnimationFrame(step); else { el.textContent = numOnly(to); fitHeroFontSize(); }
   }
   requestAnimationFrame(step);
 }
@@ -479,7 +503,7 @@ function renderChart(){
 function render(skipAnim){
   const cap = currentCapital();
   const heroEl = document.getElementById('heroValue');
-  if(skipAnim){ heroEl.textContent = numOnly(cap); }
+  if(skipAnim){ heroEl.textContent = numOnly(cap); fitHeroFontSize(); }
   else { animateValue(heroEl, displayedCapital, cap, 650); }
   displayedCapital = cap;
 
